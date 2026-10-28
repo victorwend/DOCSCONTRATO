@@ -19,7 +19,7 @@ on conflict (code) do update set name = excluded.name, description = excluded.de
 -- Funções auxiliares de seed
 -- ---------------------------------------------------------------------
 create or replace function pd_seed_admin(p_email text, p_name text, p_password text) returns uuid
-language plpgsql as $$
+language plpgsql set search_path = public, extensions as $$
 declare v_id uuid;
 begin
   select id into v_id from users where email = p_email;
@@ -35,7 +35,7 @@ end $$;
 
 create or replace function pd_seed_model(p_slug text, p_name text, p_description text, p_category text,
   p_portal_title text, p_message text, p_deadline int, p_mode text, p_pattern text) returns uuid
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 declare v_id uuid;
 begin
   insert into document_models (slug, name, description, category, portal_title, default_message,
@@ -48,7 +48,7 @@ end $$;
 create or replace function pd_seed_item(p_model uuid, p_section text, p_pos int, p_name text, p_description text,
   p_kind text default 'FILE', p_required boolean default true, p_multiple boolean default false,
   p_both_sides boolean default false) returns uuid
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 declare v_id uuid;
 begin
   insert into document_model_items (model_id, section, position, name, description, kind, required,
@@ -62,7 +62,7 @@ end $$;
 create or replace function pd_seed_question(p_model uuid, p_section text, p_pos int, p_key text, p_label text,
   p_type text, p_answered_by text, p_required boolean default false, p_help text default null,
   p_options jsonb default '[]'::jsonb, p_maps_to text default null) returns uuid
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 declare v_id uuid;
 begin
   insert into document_model_questions (model_id, section, position, key, label, type, answered_by, required,
@@ -74,7 +74,7 @@ end $$;
 
 create or replace function pd_seed_rule(p_model uuid, p_question uuid, p_value jsonb, p_item uuid,
   p_action text default 'SHOW_ITEM', p_operator text default 'EQUALS') returns void
-language sql as $$
+language sql set search_path = public as $$
   insert into document_model_rules (model_id, question_id, operator, value, action, target_item_id)
   values (p_model, p_question, p_operator, p_value, p_action, p_item);
 $$;
