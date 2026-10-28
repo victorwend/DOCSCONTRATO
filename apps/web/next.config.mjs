@@ -9,7 +9,6 @@ const securityHeaders = [
 export default {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: 'standalone',
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },

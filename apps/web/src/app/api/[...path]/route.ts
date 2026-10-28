@@ -1,8 +1,13 @@
-const apiBaseUrl = process.env.API_URL || process.env.API_INTERNAL_URL || 'http://localhost:4000';
+function getApiBaseUrl() {
+  const value = process.env.API_URL;
+  if (value) return value.replace(/\/$/, '');
+  if (process.env.NODE_ENV === 'production') throw new Error('API_URL não está configurada.');
+  return 'http://localhost:4000';
+}
 
 async function proxy(request: Request): Promise<Response> {
   const incomingUrl = new URL(request.url);
-  const targetUrl = `${apiBaseUrl.replace(/\/$/, '')}${incomingUrl.pathname}${incomingUrl.search}`;
+  const targetUrl = `${getApiBaseUrl()}${incomingUrl.pathname}${incomingUrl.search}`;
   const headers = new Headers(request.headers);
   headers.delete('host');
 

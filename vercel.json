@@ -4,13 +4,13 @@
     "api": {
       "root": "apps/api",
       "framework": "nestjs",
-      "buildCommand": "npm run build -w apps/api",
+      "buildCommand": "npm run build",
       "installCommand": "npm install"
     },
     "web": {
       "root": "apps/web",
       "framework": "nextjs",
-      "buildCommand": "npm run build -w apps/web",
+      "buildCommand": "npm run build",
       "installCommand": "npm install",
       "bindings": [
         {
