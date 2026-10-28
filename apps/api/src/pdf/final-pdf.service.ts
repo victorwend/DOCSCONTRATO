@@ -132,6 +132,7 @@ export class FinalPdfService {
       buffer = await this.files.read(f);
       fileName = f.original_name;
     }
+    if (!buffer) throw new BadRequestException('Não foi possível ler o PDF final.');
     const docs = await this.db.many<RequestDocRow>('select is_applicable, required, status from request_documents where request_id = $1', [requestId]);
     const p = computeProgress(docs);
     const res = await this.email.send(

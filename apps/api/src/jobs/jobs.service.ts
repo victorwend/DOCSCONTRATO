@@ -59,7 +59,7 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const r of rows) {
       const files = await this.db.many<{ id: string; storage_key: string }>('select id, storage_key from files where request_id = $1 and purged_at is null', [r.id]);
       for (const f of files) {
-        await this.storage.remove(f.storage_key).catch((e) => this.logger.warn(`retenção: ${f.storage_key}: ${e.message}`));
+        await this.storage.remove(f.storage_key).catch((e: unknown) => this.logger.warn(`retenção: ${f.storage_key}: ${e instanceof Error ? e.message : String(e)}`));
         await this.db.exec('update files set purged_at = now() where id = $1', [f.id]);
       }
       await this.db.exec('update requests set purged_at = now() where id = $1', [r.id]);
