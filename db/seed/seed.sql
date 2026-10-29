@@ -121,7 +121,7 @@ Local: BRASILÂNDIA DE MINAS
 Fique atento ao celular para receber data, horário e local do exame.
 
 Envie tudo corretamente para não atrasar sua contratação.$msg$,
-    7, 'SINGLE_FILE', 'DOSSIE_ADMISSIONAL_[NOME]');
+    7, 'SINGLE_FILE', 'DOCS_[NOME]');
 
   perform pd_seed_item(m, null, 1,  'Currículo', null);
   perform pd_seed_item(m, null, 2,  'CTPS – Carteira de Trabalho', null, 'FILE', true, true);
@@ -162,7 +162,7 @@ $msg$Olá, [NOME].
 Para dar continuidade ao processo com a Pavidez Engenharia, precisamos dos documentos abaixo.
 
 Envie arquivos completos, nítidos e legíveis.$msg$,
-    7, 'SEPARATE', 'CONTRATO_CARRETEIRO_[NOME]');
+    7, 'SEPARATE', 'DOCS_[NOME]');
 
   perform pd_seed_item(m, null, 1, 'RG', 'Frente e verso.', 'FILE', true, false, true);
   perform pd_seed_item(m, null, 2, 'CPF', null);
@@ -213,7 +213,7 @@ Para darmos andamento ao contrato de prestação de serviços de transporte com 
 Envie fotos ou PDFs completos e legíveis, sem cortar números, nomes ou datas.
 
 Se algum item não se aplicar, informe N/A.$msg$,
-    7, 'SEPARATE', 'CONTRATO_TRANSPORTADOR_[NOME]');
+    7, 'SEPARATE', 'DOCS_[NOME]');
 
   -- Seção 1
   perform pd_seed_item(m, s1, 1, 'Cartão CNPJ', 'Comprovante de inscrição da empresa na Receita Federal. Deve mostrar razão social, CNPJ, endereço e situação cadastral.');
@@ -330,7 +330,7 @@ Para darmos andamento ao contrato, precisamos dos seguintes documentos:
 Por favor, envie fotos ou PDFs completos e legíveis.
 
 Se algum item não se aplicar à sua situação, informe.$msg$,
-    7, 'SEPARATE', 'LOCACAO_[EQUIPAMENTO]_[NOME]');
+    7, 'SEPARATE', 'DOCS_[NOME]');
 
   q := pd_seed_question(m, 'Locação', 1, 'tipo_pessoa', 'Tipo de locador', 'SELECT', 'INTERNAL', true, null,
     '[{"value":"PF","label":"Pessoa física"},{"value":"PJ","label":"Pessoa jurídica"}]', 'request.person_type');
@@ -362,7 +362,7 @@ begin
       'Checklist ainda não definido. Edite o modelo para cadastrar os documentos ou adicione-os ao criar a solicitação.',
       'PRESTADOR', 'DOCUMENTAÇÃO PARA CONTRATO',
       E'Olá, [NOME].\n\nPara dar continuidade ao processo com a Pavidez Engenharia, precisamos dos documentos abaixo.\n\nEnvie arquivos completos, nítidos e legíveis.',
-      7, 'SEPARATE', 'PRESTADOR_SERVICOS_[NOME]');
+      7, 'SEPARATE', 'DOCS_[NOME]');
     perform pd_seed_question(m, null, 1, 'tipo_pessoa', 'Tipo de prestador', 'SELECT', 'INTERNAL', true, null,
       '[{"value":"PF","label":"Pessoa física"},{"value":"PJ","label":"Pessoa jurídica"}]', 'request.person_type');
   end if;
@@ -372,6 +372,6 @@ begin
       'Solicitação livre: monte o checklist na criação da solicitação.',
       'OUTRO', 'DOCUMENTAÇÃO',
       E'Olá, [NOME].\n\nPara dar continuidade ao processo com a Pavidez Engenharia, precisamos dos documentos abaixo.\n\nEnvie arquivos completos, nítidos e legíveis.',
-      7, 'SEPARATE', 'DOCUMENTACAO_[NOME]');
+      7, 'SEPARATE', 'DOCS_[NOME]');
   end if;
 end $$;

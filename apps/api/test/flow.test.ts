@@ -240,7 +240,7 @@ test('fluxo completo: carreteiro (link, portal, upload, rejeição, reenvio, PDF
   assert.equal(det.canGeneratePdf, true);
 
   const out = await finalPdf.generate(created.id, actor, { sendEmail: true });
-  assert.equal(out.fileName, 'CONTRATO_CARRETEIRO_JOAO_DA_SILVA.pdf');
+  assert.equal(out.fileName, 'DOCS_JOAO_DA_SILVA.pdf');
   // RG 2 + CPF 1 + CNH 2 + resid 1 + CRLV 2 + RNTRC 1 + banco 1 = 10 + capa/dados
   const final = await PDFDocument.load(await files.read(await files.getFile(out.fileId)));
   assert.ok(final.getPageCount() >= 11 && final.getPageCount() <= 13, `páginas: ${final.getPageCount()}`);
@@ -357,7 +357,7 @@ test('locação: mensagem com [EQUIPAMENTO], PF sem Cartão CNPJ, nome do arquiv
   process.env.HARNESS_FAIL_EMAIL = '1';
   const out = await finalPdf.generate(created.id, actor, { sendEmail: true });
   delete process.env.HARNESS_FAIL_EMAIL;
-  assert.equal(out.fileName, 'LOCACAO_CAMINHAO_PIPA_JOSE_LOCADOR.pdf');
+  assert.equal(out.fileName, 'DOCS_JOSE_LOCADOR.pdf');
   if (out.email?.ok === false) {
     // e-mail falhou: continua APROVADO, com PDF salvo e erro registrado
     const r = await requests.detail(created.id);
@@ -392,10 +392,25 @@ test('admissão em modo PDF único', async () => {
   assert.equal((await requests.getRow(created.id)).status, 'EM_CONFERENCIA');
   for (const d of det.documents) await review.approve(created.id, d.id, null, actor);
   const out = await finalPdf.generate(created.id, actor, { sendEmail: false });
-  assert.equal(out.fileName, 'DOSSIE_ADMISSIONAL_MARIA_SOUZA.pdf');
+  assert.equal(out.fileName, 'DOCS_MARIA_SOUZA.pdf');
   const final = await PDFDocument.load(await files.read(await files.getFile(out.fileId)));
   assert.ok(final.getPageCount() >= 21);
   assert.equal((await requests.getRow(created.id)).status, 'FINALIZADO');
+});
+
+test('formato aceito por documento (somente foto / somente PDF)', async () => {
+  const model = await modelBySlug('contrato-carreteiro');
+  const items = (await itemsFor(model.id)).map((i: any) => ({ ...i, accept: i.name === 'CPF' ? 'PDF' : i.name === 'CRLV' ? 'IMAGE' : 'ANY' }));
+  const created = await requests.create(createRequestSchema.parse({ modelId: model.id, applicant: { name: 'Formato Teste' }, items }), actor);
+  const v = await portal.view(tokenOf(created.link!), applicant);
+  const d = Object.fromEntries(v.documents.map((x: any) => [x.name, x]));
+  assert.equal(d['CPF'].accept, 'PDF');
+  await assert.rejects(files.uploadToDocument(created.id, d['CPF'].id, [file(await jpeg(), 'cpf.jpg', 'image/jpeg')], [], applicant, { byApplicant: true }), /somente arquivo PDF/);
+  await files.uploadToDocument(created.id, d['CPF'].id, [file(await pdf(1), 'cpf.pdf', 'application/pdf')], [], applicant, { byApplicant: true });
+  await assert.rejects(files.uploadToDocument(created.id, d['CRLV'].id, [file(await pdf(1), 'crlv.pdf', 'application/pdf')], [], applicant, { byApplicant: true }), /somente foto/);
+  await files.uploadToDocument(created.id, d['CRLV'].id, [file(await jpeg(), 'crlv.jpg', 'image/jpeg')], [], applicant, { byApplicant: true });
+  await requests.updateDocument(created.id, d['CPF'].id, { accept: 'ANY' }, actor);
+  assert.equal((await docsOf(created.id))['CPF'].accept, 'ANY');
 });
 
 test('expiração de link', async () => {

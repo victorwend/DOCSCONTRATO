@@ -49,6 +49,7 @@ export const requestItemSchema = z.object({
   allowMultiple: z.boolean().default(false),
   maxFiles: z.number().int().min(1).max(50).default(10),
   bothSides: z.boolean().default(false),
+  accept: z.enum(['ANY', 'IMAGE', 'PDF']).default('ANY'),
 });
 
 export const createRequestSchema = z.object({
@@ -112,6 +113,7 @@ export const updateDocumentSchema = z.object({
   required: z.boolean().optional(),
   allowMultiple: z.boolean().optional(),
   bothSides: z.boolean().optional(),
+  accept: z.enum(['ANY', 'IMAGE', 'PDF']).optional(),
   notApplicable: z.boolean().optional(),
   naReason: optText(500).optional(),
 });

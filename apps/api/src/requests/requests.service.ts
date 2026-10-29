@@ -83,6 +83,7 @@ export interface RequestDocRow extends DocState {
   allow_multiple: boolean;
   max_files: number;
   both_sides: boolean;
+  accept: 'ANY' | 'IMAGE' | 'PDF';
   is_custom: boolean;
   is_combined: boolean;
   applicability_source: 'DEFAULT' | 'RULE' | 'MANUAL';
@@ -305,12 +306,12 @@ export class RequestsService {
         const isModelItem = !!it.modelItemId && model.items.some((m) => m.id === it.modelItemId);
         const d = await this.db.one<{ id: string }>(
           `insert into request_documents (request_id, model_item_id, section, name, description, kind, base_required, required, position,
-                                          allow_multiple, max_files, both_sides, is_custom)
-           values ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12) returning id`,
+                                          allow_multiple, max_files, both_sides, is_custom, accept)
+           values ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12,$13) returning id`,
           [
             req.id, isModelItem ? it.modelItemId : null, it.section, it.name, it.description, it.kind, it.required, pos++,
             it.allowMultiple || it.bothSides, it.bothSides ? 2 : it.allowMultiple ? it.maxFiles : 1,
-            it.bothSides, !isModelItem,
+            it.bothSides, !isModelItem, it.accept ?? 'ANY',
           ],
           c,
         );
@@ -740,10 +741,10 @@ export class RequestsService {
     return this.db.tx(async (c) => {
       const pos = await this.db.one<{ p: number }>('select coalesce(max(position), 0) + 1 as p from request_documents where request_id = $1', [id], c);
       const d = await this.db.one<{ id: string }>(
-        `insert into request_documents (request_id, section, name, description, kind, base_required, required, position, allow_multiple, max_files, both_sides, is_custom)
-         values ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,true) returning id`,
+        `insert into request_documents (request_id, section, name, description, kind, base_required, required, position, allow_multiple, max_files, both_sides, is_custom, accept)
+         values ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,true,$11) returning id`,
         [id, dto.section, dto.name, dto.description, dto.kind, dto.required, pos.p, dto.allowMultiple || dto.bothSides,
-          dto.bothSides ? 2 : dto.allowMultiple ? dto.maxFiles : 1, dto.bothSides],
+          dto.bothSides ? 2 : dto.allowMultiple ? dto.maxFiles : 1, dto.bothSides, dto.accept ?? 'ANY'],
         c,
       );
       await this.audit.log(actor, 'DOCUMENT_ADDED', { requestId: id, entityType: 'request_document', entityId: d.id, details: { name: dto.name } }, c);
@@ -762,10 +763,11 @@ export class RequestsService {
                 base_required = coalesce($5, base_required), required = coalesce($5, required),
                 allow_multiple = coalesce($6, allow_multiple) or coalesce($7, both_sides),
                 both_sides = coalesce($7, both_sides),
+                accept = coalesce($8, accept),
                 max_files = case when coalesce($7, both_sides) then 2
                                  when coalesce($6, allow_multiple) then greatest(max_files, 10) else 1 end
           where id = $1`,
-        [docId, dto.name ?? null, dto.description !== undefined, dto.description ?? null, dto.required ?? null, dto.allowMultiple ?? null, dto.bothSides ?? null],
+        [docId, dto.name ?? null, dto.description !== undefined, dto.description ?? null, dto.required ?? null, dto.allowMultiple ?? null, dto.bothSides ?? null, dto.accept ?? null],
         c,
       );
       if (dto.notApplicable !== undefined) {

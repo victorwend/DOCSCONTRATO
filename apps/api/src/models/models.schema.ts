@@ -42,6 +42,7 @@ export const itemSchema = z.object({
   allowMultiple: z.boolean().default(false),
   maxFiles: z.number().int().min(1).max(50).default(10),
   bothSides: z.boolean().default(false),
+  accept: z.enum(['ANY', 'IMAGE', 'PDF']).default('ANY'),
 });
 
 export const questionSchema = z.object({
@@ -86,7 +87,7 @@ export const modelSchema = z
       .min(1)
       .max(200)
       .regex(/^[A-Za-z0-9_\-\[\] ]+$/, 'Use apenas letras, números, _ e variáveis como [NOME]')
-      .default('DOCUMENTACAO_[NOME]'),
+      .default('DOCS_[NOME]'),
     active: z.boolean().default(true),
     items: z.array(itemSchema).max(200).default([]),
     questions: z.array(questionSchema).max(200).default([]),

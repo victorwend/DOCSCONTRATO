@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { can, useUser } from '@/components/session';
+import { AcceptSelect } from '@/components/AcceptSelect';
 import { Alert, Badge, Button, Card, Checkbox, cx, Field, Input, Select, Spinner, Textarea, useToast } from '@/components/ui';
 
 interface Item {
@@ -18,6 +19,7 @@ interface Item {
   allowMultiple: boolean;
   maxFiles: number;
   bothSides: boolean;
+  accept: 'ANY' | 'IMAGE' | 'PDF';
 }
 interface Question {
   id?: string;
@@ -82,7 +84,7 @@ export default function ModelEditorPage() {
     defaultDeadlineDays: 7 as number | null,
     submissionMode: 'SEPARATE' as 'SEPARATE' | 'SINGLE_FILE',
     singleFileLabel: 'Documentação completa (PDF único)',
-    outputFilePattern: 'DOCUMENTACAO_[NOME]',
+    outputFilePattern: 'DOCS_[NOME]',
     active: true,
   });
   const [items, setItems] = useState<Item[]>([]);
@@ -108,7 +110,7 @@ export default function ModelEditorPage() {
         setItems(
           d.items.map((i: any) => ({
             id: i.id, ref: i.id, section: i.section ?? '', name: i.name, description: i.description ?? '', kind: i.kind, required: i.required,
-            allowMultiple: i.allow_multiple, maxFiles: i.max_files, bothSides: i.both_sides,
+            allowMultiple: i.allow_multiple, maxFiles: i.max_files, bothSides: i.both_sides, accept: i.accept ?? 'ANY',
           })),
         );
         setQuestions(
@@ -262,7 +264,7 @@ export default function ModelEditorPage() {
         title={`Documentos (${items.length})`}
         actions={
           !readOnly && (
-            <Button size="sm" onClick={() => setItems((l) => [...l, { ref: newRef(), section: '', name: '', description: '', kind: 'FILE', required: true, allowMultiple: false, maxFiles: 10, bothSides: false }])}>
+            <Button size="sm" onClick={() => setItems((l) => [...l, { ref: newRef(), section: '', name: '', description: '', kind: 'FILE', required: true, allowMultiple: false, maxFiles: 10, bothSides: false, accept: 'ANY' }])}>
               + Documento
             </Button>
           )
@@ -287,6 +289,7 @@ export default function ModelEditorPage() {
                     <Checkbox checked={it.required} onChange={(v) => patchItem(i, { required: v })} label="Obrigatório" disabled={readOnly} />
                     {it.kind === 'FILE' && <Checkbox checked={it.bothSides} onChange={(v) => patchItem(i, { bothSides: v })} label="Frente e verso" disabled={readOnly} />}
                     {it.kind === 'FILE' && !it.bothSides && <Checkbox checked={it.allowMultiple} onChange={(v) => patchItem(i, { allowMultiple: v })} label="Vários arquivos" disabled={readOnly} />}
+                    {it.kind === 'FILE' && <AcceptSelect value={it.accept} onChange={(v) => patchItem(i, { accept: v })} disabled={readOnly} />}
                     {rules.some((r) => r.targetRef === it.ref) && <Badge className="bg-sky-50 text-sky-800 ring-sky-200">Condicional</Badge>}
                   </div>
                 </div>
@@ -456,3 +459,4 @@ function OptionsInput({ type, options, onChange }: { type: 'SELECT' | 'TEXT'; op
     />
   );
 }
+

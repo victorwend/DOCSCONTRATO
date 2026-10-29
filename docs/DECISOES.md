@@ -39,7 +39,7 @@ foi alterado silenciosamente — quando algo foi interpretado, está aqui.
 | R15 | Reenvio | Ao rejeitar, os arquivos saem do envio atual mas permanecem no histórico (`files.is_current = false`) e continuam visíveis no painel em “Envios anteriores”. |
 | R16 | Expiração do link | Padrão: `LINK_DEFAULT_EXPIRATION_DAYS` após a geração, nunca antes do fim do dia do prazo. Editável por solicitação; regenerar mantém a expiração. |
 | R17 | Token do link | 32 caracteres base64url (192 bits). O exemplo `8FJ29KX` é curto demais para ser seguro. |
-| R18 | Nome do PDF final | Padrão por modelo com variáveis (`DOSSIE_ADMISSIONAL_[NOME]`, `LOCACAO_[EQUIPAMENTO]_[NOME]`); acentos removidos para compatibilidade (ex.: `DOSSIE_` em vez de `DOSSIÊ_`). |
+| R18 | Nome do PDF final | `DOCS_[NOME]` em todos os modelos (pedido do RH), configurável por modelo com variáveis como `[EQUIPAMENTO]`; acentos removidos para compatibilidade (ex.: `DOSSIE_` em vez de `DOSSIÊ_`). |
 | R19 | Conteúdo do PDF final | Capa (logo, empresa, tipo, nome, CPF/CNPJ, data, protocolo) + índice com páginas e N/A + “Dados informados” (respostas e itens de texto) + documentos na ordem do checklist; frente e verso juntos; todas as páginas de PDFs enviados preservadas; fotos com rotação EXIF corrigida. |
 | R20 | Finalização | Gerar PDF → armazenar → enviar e-mail → FINALIZADO. Se o e-mail falhar, o processo fica APROVADO com o PDF salvo, o erro é registrado e o RH pode reenviar ou “Finalizar sem enviar e-mail”. |
 | R21 | WhatsApp | Botões “Copiar link”, “Copiar mensagem”, “Compartilhar” (Web Share API) e “WhatsApp” via `wa.me` (link oficial de clique-para-conversar), sem API não oficial. |

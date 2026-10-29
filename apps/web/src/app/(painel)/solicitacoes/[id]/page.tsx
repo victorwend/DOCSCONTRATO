@@ -8,6 +8,7 @@ import { answerText, AUDIT_LABELS, fmtBytes, fmtDate, fmtDateTime, maskDocInput,
 import { can, useUser } from '@/components/session';
 import { FileViewer } from '@/components/FileViewer';
 import { QuestionInput } from '@/components/QuestionInput';
+import { AcceptSelect } from '@/components/AcceptSelect';
 import { ShareLink } from '@/components/ShareLink';
 import {
   Alert,
@@ -44,6 +45,7 @@ export default function RequestDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [answersOpen, setAnswersOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [sendFinalEmail, setSendFinalEmail] = useState(true);
   const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
 
   const load = useCallback(async () => {
@@ -210,16 +212,17 @@ export default function RequestDetailPage() {
                     run(
                       'pdf',
                       async () => {
-                        const res = await api(`/requests/${id}/final-pdf`, { body: { sendEmail: true } });
+                        const res = await api(`/requests/${id}/final-pdf`, { body: { sendEmail: sendFinalEmail } });
                         if (res.email && !res.email.ok) toast('error', `PDF gerado, mas o e-mail falhou: ${res.email.error}`);
                         else toast('success', `PDF gerado (${res.pages} páginas)${res.email?.ok ? ' e enviado por e-mail' : ''}.`);
                       },
                     )
                   }
                 >
-                  {d.finalFile ? 'GERAR NOVAMENTE' : 'GERAR PDF FINAL'}
+                  {d.finalFile ? 'GERAR NOVAMENTE' : 'JUNTAR TUDO EM UM PDF'}
                 </Button>
-                <p className="text-xs text-neutral-500">Envia para: {r.notify_email ?? 'e-mail padrão do sistema'}</p>
+                <p className="text-xs text-neutral-500">Converte as fotos em PDF, junta tudo na ordem do checklist e salva como DOCS_NOME_DO_SOLICITANTE.pdf.</p>
+                <Checkbox checked={sendFinalEmail} onChange={setSendFinalEmail} label={`Enviar por e-mail para ${r.notify_email ?? 'o e-mail padrão'}`} />
                 {r.status === 'APROVADO' && d.finalFile && (
                   <Button size="sm" className="w-full" onClick={() => run('fin', () => api(`/requests/${id}/finalize`, { method: 'POST' }), 'Processo finalizado.')}>
                     Finalizar sem enviar e-mail
@@ -578,6 +581,8 @@ function DocRow(props: {
             <DocStatusBadge status={doc.status} na={!doc.is_applicable} />
             {!doc.required && doc.is_applicable && <Badge className="bg-white text-neutral-500 ring-neutral-300">Opcional</Badge>}
             {doc.both_sides && <Badge className="bg-white text-neutral-500 ring-neutral-300">Frente e verso</Badge>}
+            {doc.kind === 'FILE' && doc.accept === 'PDF' && <Badge className="bg-white text-neutral-500 ring-neutral-300">Somente PDF</Badge>}
+            {doc.kind === 'FILE' && doc.accept === 'IMAGE' && <Badge className="bg-white text-neutral-500 ring-neutral-300">Somente foto</Badge>}
             {doc.kind === 'TEXT' && <Badge className="bg-violet-50 text-violet-800 ring-violet-200">Texto</Badge>}
             {doc.is_custom && <Badge className="bg-brand-100 text-ink ring-brand-500">Adicionado</Badge>}
             {doc.na_requested && <Badge className="bg-amber-50 text-amber-800 ring-amber-300">Solicitante: não se aplica</Badge>}
@@ -816,9 +821,9 @@ function AnswersModal({ open, onClose, questions, answers, onSave }: { open: boo
 }
 
 function AddDocumentModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (b: any) => void }) {
-  const [f, setF] = useState({ name: '', description: '', kind: 'FILE', required: true, bothSides: false, allowMultiple: false });
+  const [f, setF] = useState<any>({ name: '', description: '', kind: 'FILE', required: true, bothSides: false, allowMultiple: false, accept: 'ANY' });
   useEffect(() => {
-    if (open) setF({ name: '', description: '', kind: 'FILE', required: true, bothSides: false, allowMultiple: false });
+    if (open) setF({ name: '', description: '', kind: 'FILE', required: true, bothSides: false, allowMultiple: false, accept: 'ANY' });
   }, [open]);
   return (
     <Modal
@@ -850,6 +855,7 @@ function AddDocumentModal({ open, onClose, onSave }: { open: boolean; onClose: (
         <div className="flex flex-wrap gap-4">
           <Checkbox checked={f.required} onChange={(v) => setF({ ...f, required: v })} label="Obrigatório" />
           {f.kind === 'FILE' && <Checkbox checked={f.bothSides} onChange={(v) => setF({ ...f, bothSides: v })} label="Frente e verso" />}
+          {f.kind === 'FILE' && <AcceptSelect value={f.accept} onChange={(v) => setF({ ...f, accept: v })} />}
           {f.kind === 'FILE' && <Checkbox checked={f.allowMultiple} onChange={(v) => setF({ ...f, allowMultiple: v })} label="Vários arquivos" />}
         </div>
       </div>

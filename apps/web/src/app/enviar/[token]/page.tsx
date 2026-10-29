@@ -253,9 +253,15 @@ function DocumentCard({ token, doc, accepting, maxMb, onChange }: { token: strin
   const canSend = accepting && !doc.awaitingAnswer && ['PENDENTE', 'RECEBIDO', 'REJEITADO'].includes(doc.status);
   const front = doc.files.find((f: any) => f.side === 'FRONT');
   const back = doc.files.find((f: any) => f.side === 'BACK');
+  const allowPhoto = doc.accept !== 'PDF';
+  const allowPdf = doc.accept !== 'IMAGE';
+  const acceptAttr = doc.accept === 'PDF' ? '.pdf,application/pdf' : doc.accept === 'IMAGE' ? '.jpg,.jpeg,.png,image/jpeg,image/png' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
 
   async function send(files: File[], side: 'FRONT' | 'BACK' | null) {
     const tooBig = files.find((f) => f.size > maxMb * 1024 * 1024);
+    const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+    if (doc.accept === 'PDF' && files.some((f) => !isPdf(f))) return toast('error', 'Este documento aceita somente arquivo PDF.');
+    if (doc.accept === 'IMAGE' && files.some(isPdf)) return toast('error', 'Este documento aceita somente foto (JPG ou PNG).');
     if (tooBig) return toast('error', `"${tooBig.name}" é maior que ${maxMb} MB.`);
     const fd = new FormData();
     files.forEach((f) => fd.append('files', f, f.name || 'foto.jpg'));
@@ -395,7 +401,7 @@ function DocumentCard({ token, doc, accepting, maxMb, onChange }: { token: strin
           <button className="text-sm font-semibold underline" onClick={() => pick('file', null)}>
             Substituir arquivo
           </button>
-          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="hidden" onChange={onFiles} />
+          <input ref={fileRef} type="file" accept={acceptAttr} className="hidden" onChange={onFiles} />
         </div>
       )}
 
@@ -404,26 +410,33 @@ function DocumentCard({ token, doc, accepting, maxMb, onChange }: { token: strin
           {doc.bothSides ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <SideButton label="FRENTE" done={!!front} onCamera={() => pick('camera', 'FRONT')} onFile={() => pick('file', 'FRONT')} />
-                <SideButton label="VERSO" done={!!back} onCamera={() => pick('camera', 'BACK')} onFile={() => pick('file', 'BACK')} />
+                <SideButton label="FRENTE" done={!!front} camera={allowPhoto} fileLabel={allowPdf ? 'Arquivo' : 'Galeria'} onCamera={() => pick('camera', 'FRONT')} onFile={() => pick('file', 'FRONT')} />
+                <SideButton label="VERSO" done={!!back} camera={allowPhoto} fileLabel={allowPdf ? 'Arquivo' : 'Galeria'} onCamera={() => pick('camera', 'BACK')} onFile={() => pick('file', 'BACK')} />
               </div>
-              <button className="w-full text-center text-xs font-semibold text-neutral-600 underline" onClick={() => pick('file', null)}>
-                Tenho um PDF com frente e verso
-              </button>
+              {allowPdf && (
+                <button className="w-full text-center text-xs font-semibold text-neutral-600 underline" onClick={() => pick('file', null)}>
+                  Tenho um PDF com frente e verso
+                </button>
+              )}
             </>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="primary" size="lg" onClick={() => pick('camera', null)}>
-                📷 Tirar foto
-              </Button>
+            <div className={cx('grid gap-2', allowPhoto ? 'grid-cols-2' : 'grid-cols-1')}>
+              {allowPhoto && (
+                <Button variant="primary" size="lg" onClick={() => pick('camera', null)}>
+                  📷 Tirar foto
+                </Button>
+              )}
               <Button variant="dark" size="lg" onClick={() => pick('file', null)}>
                 {doc.status === 'REJEITADO' ? 'REENVIAR' : doc.files.length && doc.allowMultiple ? '+ ARQUIVO' : 'ENVIAR'}
               </Button>
             </div>
           )}
-          {doc.allowMultiple && !doc.bothSides && <p className="text-center text-xs text-neutral-500">Você pode enviar vários arquivos (até {doc.maxFiles}).</p>}
+          <p className="text-center text-xs text-neutral-500">
+            {doc.accept === 'PDF' ? 'Envie somente arquivo PDF.' : doc.accept === 'IMAGE' ? 'Envie somente foto (JPG ou PNG).' : 'Foto (JPG/PNG) ou PDF.'}
+            {doc.allowMultiple && !doc.bothSides && ` Você pode enviar vários arquivos (até ${doc.maxFiles}).`}
+          </p>
           <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFiles} />
-          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple={doc.allowMultiple && !pendingSide} className="hidden" onChange={onFiles} />
+          <input ref={fileRef} type="file" accept={acceptAttr} multiple={doc.allowMultiple && !pendingSide} className="hidden" onChange={onFiles} />
         </div>
       )}
 
@@ -453,17 +466,19 @@ function DocumentCard({ token, doc, accepting, maxMb, onChange }: { token: strin
   );
 }
 
-function SideButton({ label, done, onCamera, onFile }: { label: string; done: boolean; onCamera: () => void; onFile: () => void }) {
+function SideButton({ label, done, camera, fileLabel, onCamera, onFile }: { label: string; done: boolean; camera: boolean; fileLabel: string; onCamera: () => void; onFile: () => void }) {
   return (
     <div className={cx('rounded-lg p-2 ring-1 ring-inset', done ? 'bg-emerald-50 ring-emerald-300' : 'bg-neutral-50 ring-neutral-200')}>
       <p className="mb-2 text-center text-xs font-bold">
         {label} {done && '✓'}
       </p>
       <div className="grid gap-1.5">
-        <Button variant="primary" onClick={onCamera}>
-          📷 Foto
-        </Button>
-        <Button onClick={onFile}>Arquivo</Button>
+        {camera && (
+          <Button variant="primary" onClick={onCamera}>
+            📷 Foto
+          </Button>
+        )}
+        <Button onClick={onFile}>{fileLabel}</Button>
       </div>
     </div>
   );

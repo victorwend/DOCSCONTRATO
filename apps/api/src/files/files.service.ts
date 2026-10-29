@@ -83,7 +83,14 @@ export class FilesService {
     for (const f of incoming) {
       const name = sanitizeOriginalName(f.originalname);
       try {
-        validated.push({ f, name, v: await validateUpload(f.buffer, name, f.mimetype, this.maxBytes) });
+        const v = await validateUpload(f.buffer, name, f.mimetype, this.maxBytes);
+        if (doc.accept === 'PDF' && v.mime !== 'application/pdf') {
+          throw new UploadValidationError('Este documento aceita somente arquivo PDF.', 'FORMAT_NOT_ALLOWED');
+        }
+        if (doc.accept === 'IMAGE' && v.mime === 'application/pdf') {
+          throw new UploadValidationError('Este documento aceita somente foto (JPG ou PNG).', 'FORMAT_NOT_ALLOWED');
+        }
+        validated.push({ f, name, v });
       } catch (e) {
         if (e instanceof UploadValidationError) throw new BadRequestException(`${name}: ${e.message}`);
         throw e;

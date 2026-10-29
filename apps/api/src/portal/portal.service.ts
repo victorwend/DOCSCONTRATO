@@ -95,6 +95,7 @@ export class PortalService {
         allowMultiple: d.allow_multiple,
         maxFiles: d.max_files,
         bothSides: d.both_sides,
+        accept: d.accept,
         isCombined: d.is_combined,
         awaitingAnswer: d.awaiting_answer && !d.is_applicable,
         status: d.status,

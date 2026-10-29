@@ -14,6 +14,7 @@ export interface ModelItemRow {
   allow_multiple: boolean;
   max_files: number;
   both_sides: boolean;
+  accept: 'ANY' | 'IMAGE' | 'PDF';
 }
 export interface ModelQuestionRow {
   id: string;
@@ -92,7 +93,7 @@ export class ModelsService {
     const model = await this.db.maybe<FullModel>('select * from document_models where id = $1', [id]);
     if (!model) throw new NotFoundException('Modelo não encontrado');
     model.items = await this.db.many(
-      `select id, section, name, description, kind, required, position, allow_multiple, max_files, both_sides
+      `select id, section, name, description, kind, required, position, allow_multiple, max_files, both_sides, accept
          from document_model_items where model_id = $1 and active order by position, created_at`,
       [id],
     );
@@ -161,13 +162,13 @@ export class ModelsService {
     const itemIds = new Map<string, string>();
     const keptItems: string[] = [];
     for (const [pos, it] of input.items.entries()) {
-      const params = [modelId, it.section, it.name, it.description, it.kind, it.required, pos + 1, it.allowMultiple || it.bothSides, it.bothSides ? 2 : it.allowMultiple ? it.maxFiles : 1, it.bothSides];
+      const params = [modelId, it.section, it.name, it.description, it.kind, it.required, pos + 1, it.allowMultiple || it.bothSides, it.bothSides ? 2 : it.allowMultiple ? it.maxFiles : 1, it.bothSides, it.accept ?? 'ANY'];
       let id: string | null = null;
       if (it.id) {
         const r = await this.db.maybe<{ id: string }>(
           `update document_model_items set section=$2, name=$3, description=$4, kind=$5, required=$6, position=$7,
-                  allow_multiple=$8, max_files=$9, both_sides=$10, active=true
-            where id = $11 and model_id = $1 returning id`,
+                  allow_multiple=$8, max_files=$9, both_sides=$10, accept=$11, active=true
+            where id = $12 and model_id = $1 returning id`,
           [...params, it.id],
           c,
         );
@@ -176,8 +177,8 @@ export class ModelsService {
       if (!id) {
         id = (
           await this.db.one<{ id: string }>(
-            `insert into document_model_items (model_id, section, name, description, kind, required, position, allow_multiple, max_files, both_sides)
-             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
+            `insert into document_model_items (model_id, section, name, description, kind, required, position, allow_multiple, max_files, both_sides, accept)
+             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
             params,
             c,
           )
@@ -246,7 +247,7 @@ export class ModelsService {
       active: false,
       items: m.items.map((i) => ({
         ref: i.id, section: i.section, name: i.name, description: i.description, kind: i.kind, required: i.required,
-        allowMultiple: i.allow_multiple, maxFiles: i.max_files, bothSides: i.both_sides,
+        allowMultiple: i.allow_multiple, maxFiles: i.max_files, bothSides: i.both_sides, accept: i.accept,
       })),
       questions: m.questions.map((q) => ({
         ref: q.id, key: q.key, label: q.label, helpText: q.help_text, type: q.type, options: q.options, required: q.required,

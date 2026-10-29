@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { maskDocInput, maskPhone, todayPlus } from '@/lib/format';
 import { useUser } from '@/components/session';
 import { QuestionInput } from '@/components/QuestionInput';
+import { AcceptSelect } from '@/components/AcceptSelect';
 import { ShareLink } from '@/components/ShareLink';
 import { Alert, Badge, Button, Card, Checkbox, cx, EmptyState, Field, Input, Select, Spinner, Textarea, useToast } from '@/components/ui';
 
@@ -28,6 +29,7 @@ interface ChecklistItem {
   required: boolean;
   allowMultiple: boolean;
   bothSides: boolean;
+  accept: 'ANY' | 'IMAGE' | 'PDF';
   maxFiles: number;
   included: boolean;
   evaluation?: { applicable: boolean; awaitingAnswer: boolean; conditional: boolean; reason: string | null; required: boolean };
@@ -93,6 +95,7 @@ export default function NewRequestPage() {
         required: it.required,
         allowMultiple: it.allow_multiple,
         bothSides: it.both_sides,
+        accept: it.accept ?? 'ANY',
         maxFiles: it.max_files,
         included: true,
         evaluation: it.evaluation,
@@ -154,7 +157,7 @@ export default function NewRequestPage() {
   function addCustom() {
     setItems((list) => [
       ...list,
-      { key: `custom-${Date.now()}`, modelItemId: null, section: null, name: '', description: null, kind: 'FILE', required: true, allowMultiple: false, bothSides: false, maxFiles: 10, included: true },
+      { key: `custom-${Date.now()}`, modelItemId: null, section: null, name: '', description: null, kind: 'FILE', required: true, allowMultiple: false, bothSides: false, accept: 'ANY', maxFiles: 10, included: true },
     ]);
   }
 
@@ -194,6 +197,7 @@ export default function NewRequestPage() {
             required: i.required,
             allowMultiple: i.allowMultiple,
             bothSides: i.bothSides,
+            accept: i.accept,
             maxFiles: i.maxFiles,
           })),
           generateLink,
@@ -408,6 +412,7 @@ export default function NewRequestPage() {
                               <>
                                 <Checkbox checked={it.bothSides} onChange={(v) => patchItem(i, { bothSides: v })} label="Frente e verso" />
                                 {!it.bothSides && <Checkbox checked={it.allowMultiple} onChange={(v) => patchItem(i, { allowMultiple: v })} label="Vários arquivos" />}
+                                <AcceptSelect value={it.accept} onChange={(v) => patchItem(i, { accept: v })} />
                               </>
                             )}
                             {!it.modelItemId && (
