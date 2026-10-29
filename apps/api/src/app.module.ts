@@ -23,6 +23,7 @@ import { FinalPdfService } from './pdf/final-pdf.service';
 import { PortalService } from './portal/portal.service';
 import { PortalController } from './portal/portal.controller';
 import { JobsService } from './jobs/jobs.service';
+import { WhatsappService } from './whatsapp/whatsapp.service';
 import { AllExceptionsFilter } from './common/exception.filter';
 import { Public } from './common/http';
 
@@ -68,6 +69,7 @@ class CoreModule implements OnModuleDestroy {
     FinalPdfService,
     PortalService,
     JobsService,
+    WhatsappService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

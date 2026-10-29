@@ -233,8 +233,8 @@ export class RequestsController {
     assertUuid(id);
     assertUuid(docId);
     const dto = parse(rejectSchema, body);
-    await this.review.reject(id, docId, dto.reason, dto.note, dto.notifyApplicant, userActor(req) as any);
-    return { ok: true };
+    const res = await this.review.reject(id, docId, dto.reason, dto.note, dto.notifyApplicant, userActor(req) as any);
+    return { ok: true, ...res };
   }
 
   /** Upload interno (ex.: documento recebido por outro canal). */

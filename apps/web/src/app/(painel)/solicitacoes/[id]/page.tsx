@@ -46,6 +46,7 @@ export default function RequestDetailPage() {
   const [answersOpen, setAnswersOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [sendFinalEmail, setSendFinalEmail] = useState(true);
+  const [waNotice, setWaNotice] = useState<{ link: string; doc: string } | null>(null);
   const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
 
   const load = useCallback(async () => {
@@ -478,9 +479,16 @@ export default function RequestDetailPage() {
               variant="danger"
               loading={busy === 'reject'}
               onClick={() =>
-                run('reject', () => api(`/requests/${id}/documents/${rejectDoc.id}/reject`, { body: { ...rejectForm, note: rejectForm.note || null } }), 'Documento rejeitado. O solicitante poderá reenviar.').then(() =>
-                  setRejectDoc(null),
-                )
+                run('reject', async () => {
+                  const docName = rejectDoc.name;
+                  const res = await api(`/requests/${id}/documents/${rejectDoc.id}/reject`, { body: { ...rejectForm, note: rejectForm.note || null } });
+                  if (res.whatsapp?.sent) toast('success', 'Documento rejeitado. Candidato avisado pelo WhatsApp.');
+                  else {
+                    toast('success', 'Documento rejeitado. O solicitante poderá reenviar.');
+                    if (res.whatsapp && !res.whatsapp.sent) toast('error', `WhatsApp automático falhou: ${res.whatsapp.error}`);
+                    if (res.whatsappLink) setWaNotice({ link: res.whatsappLink, doc: docName });
+                  }
+                }).then(() => setRejectDoc(null))
               }
             >
               REJEITAR
@@ -506,8 +514,37 @@ export default function RequestDetailPage() {
           <Field label="Observação para o solicitante" required={rejectForm.reason === 'OUTRO'}>
             <Textarea value={rejectForm.note} placeholder="Ex.: Envie uma nova foto com melhor qualidade." onChange={(e) => setRejectForm((f) => ({ ...f, note: e.target.value }))} />
           </Field>
+          {r.applicant_phone ? (
+            <p className="text-xs text-neutral-500">O candidato será avisado pelo WhatsApp ({r.applicant_phone}).</p>
+          ) : (
+            <p className="text-xs text-amber-700">Sem telefone cadastrado: cadastre em “Editar dados” para avisar pelo WhatsApp.</p>
+          )}
           {r.applicant_email && <Checkbox checked={rejectForm.notifyApplicant} onChange={(v) => setRejectForm((f) => ({ ...f, notifyApplicant: v }))} label={`Avisar ${r.applicant_email} por e-mail`} />}
         </div>
+      </Modal>
+
+      <Modal
+        open={!!waNotice}
+        onClose={() => setWaNotice(null)}
+        title="Avisar o candidato pelo WhatsApp"
+        footer={
+          <>
+            <Button onClick={() => setWaNotice(null)}>Agora não</Button>
+            <a
+              href={waNotice?.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setWaNotice(null)}
+              className="inline-flex items-center justify-center rounded-md bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Abrir WhatsApp
+            </a>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-700">
+          O WhatsApp vai abrir com a mensagem pronta para {r.applicant_name}, avisando que “{waNotice?.doc}” precisa ser reenviado, com o motivo e o link. É só tocar em enviar.
+        </p>
       </Modal>
 
       <EditRequestModal open={editOpen} onClose={() => setEditOpen(false)} r={r} users={users} onSave={(body) => run('edit', () => api(`/requests/${id}`, { method: 'PATCH', body }), 'Dados atualizados.').then(() => setEditOpen(false))} />

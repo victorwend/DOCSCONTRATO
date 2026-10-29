@@ -56,6 +56,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   PDF_FAILED: 'Falha ao gerar PDF',
   EMAIL_SENT: 'E-mail enviado',
   EMAIL_FAILED: 'Falha no envio de e-mail',
+  WHATSAPP_SENT: 'Aviso enviado pelo WhatsApp',
+  WHATSAPP_FAILED: 'Falha no aviso pelo WhatsApp',
   REQUEST_FINALIZED: 'Processo finalizado',
   REQUEST_CANCELLED: 'Solicitação cancelada',
   REQUEST_REOPENED: 'Solicitação reaberta',

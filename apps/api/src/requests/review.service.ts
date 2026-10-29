@@ -6,6 +6,7 @@ import { EmailService } from '../email/email.service';
 import { REJECTION_REASONS, RejectionReason } from '../domain/status';
 import { decryptToken } from '../domain/link-token';
 import { RequestDocRow, RequestsService } from './requests.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 /** Conferência dos documentos pelo RH/conferente. */
 @Injectable()
@@ -15,6 +16,7 @@ export class ReviewService {
     private readonly audit: AuditService,
     private readonly requests: RequestsService,
     private readonly email: EmailService,
+    private readonly whatsapp: WhatsappService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -79,6 +81,21 @@ export class ReviewService {
       await this.requests.recalc(requestId, actor, c);
     });
 
+    const link = r.token_encrypted ? this.requests.linkUrl(decryptToken(r.token_encrypted, this.env.TOKEN_ENCRYPTION_KEY)) : null;
+    const result: { whatsapp: { sent: boolean; error?: string } | null; whatsappLink: string | null } = { whatsapp: null, whatsappLink: null };
+    if (link && r.applicant_phone) {
+      const notice = { phone: r.applicant_phone, name: r.applicant_name, documentName: d.name, reason: REJECTION_REASONS[reason], note, link };
+      result.whatsappLink = WhatsappService.clickToChat(notice);
+      if (notify && r.link_active && this.whatsapp.enabled) {
+        const w = await this.whatsapp.sendRejection(notice);
+        result.whatsapp = { sent: w.ok, error: w.error };
+        await this.audit.log({ type: 'SYSTEM' }, w.ok ? 'WHATSAPP_SENT' : 'WHATSAPP_FAILED', {
+          requestId,
+          details: { to: w.to, document: d.name, error: w.error },
+        });
+      }
+    }
+
     if (notify && this.env.NOTIFY_APPLICANT_EMAILS && r.applicant_email && r.token_encrypted && r.link_active) {
       const res = await this.email.send(
         'DOCUMENT_REJECTED',
@@ -89,7 +106,7 @@ export class ReviewService {
           documentName: d.name,
           rejectionReason: REJECTION_REASONS[reason],
           rejectionNote: note,
-          link: this.requests.linkUrl(decryptToken(r.token_encrypted, this.env.TOKEN_ENCRYPTION_KEY)),
+          link: link!,
         },
         { requestId },
       );
@@ -98,6 +115,7 @@ export class ReviewService {
         details: { template: 'DOCUMENT_REJECTED', to: r.applicant_email, document: d.name, error: res.error },
       });
     }
+    return result;
   }
 
   /** Itens do tipo TEXTO (ex.: telefone) — enviados pelo solicitante ou preenchidos pelo RH. */

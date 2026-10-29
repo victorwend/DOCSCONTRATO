@@ -50,6 +50,13 @@ const schema = z
     DEFAULT_NOTIFY_EMAIL: z.string().email().optional().or(z.literal('').transform(() => undefined)),
     NOTIFY_APPLICANT_EMAILS: bool(true),
 
+    // WhatsApp Cloud API (oficial da Meta) — opcional
+    WHATSAPP_TOKEN: z.string().optional(),
+    WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+    WHATSAPP_TEMPLATE_REJECTED: z.string().default('documento_reprovado'),
+    WHATSAPP_TEMPLATE_LANG: z.string().default('pt_BR'),
+    WHATSAPP_API_VERSION: z.string().default('v21.0'),
+
     COMPANY_NAME: z.string().default('PAVIDEZ ENGENHARIA'),
     COMPANY_CNPJ: z.string().default('01.744.153/0001-06'),
     COMPANY_LOGO_PATH: z.string().default('./apps/api/assets/logo-pavidez.png'),
