@@ -273,7 +273,9 @@ solicitar “Contrato de locação/comodato”*). Salvou e está ativo → apare
 3. Na tela do modelo: junte trechos que são o mesmo dado (escolha o mesmo campo), dê um grupo (“Locador”, “Veículo”), tipo
    (data, valor, marcação), formato (extenso, CPF, data por extenso) e a **origem** do dado na solicitação. Use
    **Baixar teste preenchido** para abrir no Word com cada campo marcado como «nome do campo».
-4. Na solicitação: **Contrato → Preencher contrato**. Os dados vêm sugeridos; o RH confere com os documentos aprovados, marca
+4. Na solicitação: **Contrato → Preencher contrato**. Com `ANTHROPIC_API_KEY` configurada, o sistema **lê os documentos
+   aprovados** (CRLV, cartão CNPJ, CNH, comprovantes, proposta) e preenche os campos vazios, mostrando de qual documento veio
+   cada valor (botão **Ler documentos aprovados** repete a leitura depois de novas aprovações). Os dados vêm sugeridos; o RH confere com os documentos aprovados, marca
    “conferi” e **Confirma**. Com a documentação aprovada, **Gerar contrato** cria o `.docx` preenchido (só os campos mudam).
 
 ## 7. Modelos iniciais
@@ -346,7 +348,7 @@ Prefixo `/api`. Autenticadas (cookie de sessão) salvo indicação.
 | GET/POST | `/contract-templates` (upload multipart `file` .docx + `name`, `modelId`) | modelos de contrato |
 | GET/PUT | `/contract-templates/:id` · GET `/original` · `/preview` | trechos detectados, campos e mapeamento; arquivo original; teste preenchido |
 | GET/POST | `/requests/:id/contracts` | contratos da solicitação / iniciar a partir de um modelo |
-| PUT/DELETE | `/requests/:id/contracts/:cid` · POST `/refill` · `/confirm` · `/generate` | salvar dados, buscar dados da solicitação, confirmar, gerar .docx |
+| PUT/DELETE | `/requests/:id/contracts/:cid` · POST `/refill` · `/extract` · `/confirm` · `/generate` | salvar dados, buscar dados da solicitação, confirmar, gerar .docx |
 | POST | `/requests/:id/cancel` · `/reopen` | cancelar / reabrir |
 | GET | `/files/:id/url` → GET `/files/signed/:token` (público, assinado) | visualizar/baixar |
 | GET | `/portal/:token` | **público** — dados do link |

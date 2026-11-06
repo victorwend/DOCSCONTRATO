@@ -49,6 +49,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   CONTRACT_UPDATED: 'Dados do contrato alterados',
   CONTRACT_CONFIRMED: 'Dados do contrato conferidos e confirmados',
   CONTRACT_GENERATED: 'Contrato gerado',
+  CONTRACT_EXTRACTED: 'Dados do contrato lidos dos documentos aprovados',
   CONTRACT_REMOVED: 'Contrato removido',
   CONTRACT_TEMPLATE_CREATED: 'Modelo de contrato cadastrado',
   CONTRACT_TEMPLATE_UPDATED: 'Modelo de contrato alterado',

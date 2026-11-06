@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ENV, Env } from '../config/env';
@@ -22,6 +22,8 @@ import {
 } from '../domain/docx/template';
 import { buildContext, resolveSource, STATIC_SOURCES } from '../domain/docx/sources';
 import { FORMAT_LABELS } from '../domain/docx/format';
+import { buildContent, buildInstructions, ExtractionDoc, parseExtraction } from '../domain/docx/extraction';
+import sharp from 'sharp';
 import { templateMetaSchema, templateUpdateSchema } from './contracts.schema';
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -85,8 +87,12 @@ function fileBase(pattern: string, name: string) {
   return (pattern.includes('[NOME]') ? pattern.replace('[NOME]', n) : `${pattern}_${n}`).replace(/\s+/g, '_').slice(0, 150);
 }
 
+const MAX_AI_BYTES = 20 * 1024 * 1024; // total enviado à IA por leitura
+
 @Injectable()
 export class ContractsService {
+  private readonly logger = new Logger(ContractsService.name);
+
   constructor(
     private readonly db: Db,
     @Inject(STORAGE) private readonly storage: StorageDriver,
@@ -274,6 +280,7 @@ export class ContractsService {
     return {
       contracts: detailed,
       templates,
+      aiEnabled: this.aiEnabled,
       canGenerate: GENERATE_STATUSES.includes(r.status),
       generateBlockedReason: GENERATE_STATUSES.includes(r.status)
         ? null
@@ -349,7 +356,12 @@ export class ContractsService {
       [requestId, t.id, t.name, JSON.stringify(values), actor.userId],
     );
     await this.audit.log(actor, 'CONTRACT_CREATED', { requestId, entityType: 'request_contract', entityId: row.id, details: { template: t.name } });
-    return { id: row.id };
+    // lê automaticamente os documentos já aprovados (se a leitura estiver configurada)
+    let extraction: { filled: number; found: number; notes: string[] } | { error: string } | null = null;
+    if (this.aiEnabled && (await this.hasApprovedDocs(requestId))) {
+      extraction = await this.extract(requestId, row.id, actor).catch((e) => ({ error: (e as Error).message }));
+    }
+    return { id: row.id, extraction };
   }
 
   async saveValues(requestId: string, contractId: string, incoming: Record<string, unknown>, actor: Actor & { type: 'USER' }) {
@@ -426,6 +438,144 @@ export class ContractsService {
       details: { template: t.name, name, filled: result.filled, kept: result.keptSlots.length, stale: result.staleSlots.length },
     });
     return { fileId, name, filled: result.filled, kept: result.keptSlots.length };
+  }
+
+  // ========================================================================
+  // Leitura dos documentos aprovados (IA assistiva)
+  // ========================================================================
+
+  get aiEnabled() {
+    return !!this.env.ANTHROPIC_API_KEY;
+  }
+
+  private async hasApprovedDocs(requestId: string) {
+    const r = await this.db.maybe(`select 1 from request_documents where request_id = $1 and status = 'APROVADO' and is_applicable limit 1`, [requestId]);
+    return !!r;
+  }
+
+  /** Documentos aprovados com os arquivos atuais (fotos reduzidas para leitura). */
+  private async approvedDocs(requestId: string): Promise<{ docs: ExtractionDoc[]; skipped: string[] }> {
+    const rows = await this.db.many<{ id: string; name: string; kind: string; text_value: string | null }>(
+      `select id, name, kind, text_value from request_documents
+        where request_id = $1 and status = 'APROVADO' and is_applicable order by position, created_at`,
+      [requestId],
+    );
+    const docs: ExtractionDoc[] = [];
+    const skipped: string[] = [];
+    let total = 0;
+    for (const d of rows) {
+      const doc: ExtractionDoc = { name: d.name, text: d.kind === 'TEXT' ? d.text_value : null, files: [] };
+      const files = await this.db.many<{ storage_key: string; mime_type: string; original_name: string; size_bytes: number }>(
+        `select storage_key, mime_type, original_name, size_bytes from files
+          where request_document_id = $1 and kind = 'ORIGINAL' and is_current and purged_at is null
+          order by side nulls first, created_at`,
+        [d.id],
+      );
+      for (const f of files) {
+        let data = await this.storage.get(f.storage_key);
+        let mime = f.mime_type;
+        if (mime.startsWith('image/')) {
+          data = await sharp(data, { limitInputPixels: 120_000_000 })
+            .rotate()
+            .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          mime = 'image/jpeg';
+        } else if (mime !== 'application/pdf') continue;
+        if (total + data.length > MAX_AI_BYTES) {
+          skipped.push(`${d.name} (${f.original_name})`);
+          continue;
+        }
+        total += data.length;
+        doc.files.push({ mime, data, name: f.original_name });
+      }
+      if (doc.files.length || doc.text) docs.push(doc);
+    }
+    return { docs, skipped };
+  }
+
+  private async callClaude(content: Array<Record<string, unknown>>): Promise<string> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), this.env.CONTRACT_AI_TIMEOUT_SECONDS * 1000);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': this.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: this.env.ANTHROPIC_MODEL, max_tokens: 8000, messages: [{ role: 'user', content }] }),
+        signal: ctrl.signal,
+      });
+      const body = (await res.json().catch(() => null)) as { content?: Array<{ type: string; text?: string }>; error?: { message?: string } } | null;
+      if (!res.ok) throw new Error(`Leitura dos documentos falhou (${res.status}): ${body?.error?.message ?? 'erro na API de IA'}`);
+      return (body?.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n');
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw new Error('A leitura dos documentos demorou demais. Tente novamente.');
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Lê os documentos aprovados e preenche os campos vazios do contrato (ou todos, com overwrite).
+   * Os valores lidos ficam marcados com o documento de origem; o RH confere e confirma antes de gerar.
+   */
+  async extract(requestId: string, contractId: string, actor: Actor & { type: 'USER' }, opts: { overwrite?: boolean } = {}) {
+    if (!this.aiEnabled) throw new BadRequestException('Leitura automática não configurada: defina ANTHROPIC_API_KEY nas variáveis de ambiente da API.');
+    const c = await this.getContract(requestId, contractId);
+    const t = await this.getTemplateRow(c.template_id);
+    const used = new Set(t.slots.filter((s) => s.action === 'FIELD').map((s) => s.field));
+    const fields = t.fields.filter((f) => used.has(f.key));
+    if (!fields.length) throw new BadRequestException('O modelo de contrato não tem campos ligados ao arquivo.');
+    const { docs, skipped } = await this.approvedDocs(requestId);
+    if (!docs.length) throw new BadRequestException('Nenhum documento aprovado para ler. Aprove os documentos primeiro.');
+
+    const r = await this.requests.getRow(requestId);
+    const answers = await this.db.many<{ label: string; value: unknown }>('select label, value from request_answers where request_id = $1', [requestId]);
+    const extras = Object.fromEntries(
+      answers.filter((a) => a.value !== null && a.value !== '').map((a) => [a.label, typeof a.value === 'boolean' ? (a.value ? 'Sim' : 'Não') : String(a.value)]),
+    );
+    const instructions = buildInstructions(fields, {
+      processo: r.model_name,
+      solicitante: r.applicant_name,
+      tipoPessoa: r.person_type === 'PJ' ? 'pessoa jurídica' : 'pessoa física',
+      extras,
+    });
+
+    let result;
+    try {
+      result = parseExtraction(await this.callClaude(buildContent(docs, instructions)), fields);
+    } catch (e) {
+      const msg = (e as Error).message;
+      this.logger.warn(`Leitura do contrato ${contractId} falhou: ${msg}`);
+      await this.db.exec('update request_contracts set extraction_error = $2, extracted_at = now() where id = $1', [contractId, msg.slice(0, 500)]);
+      throw new BadRequestException(msg);
+    }
+
+    const values: Record<string, unknown> = { ...c.values };
+    let filled = 0;
+    for (const [key, s] of Object.entries(result.suggestions)) {
+      const cur = values[key];
+      const empty = cur === undefined || cur === null || (typeof cur === 'string' && !cur.trim());
+      if (opts.overwrite || empty) {
+        if (cur !== s.value) filled++;
+        values[key] = s.value;
+      }
+    }
+    const notes = [...result.notes, ...skipped.map((x) => `Não enviado para leitura (limite de tamanho): ${x}`)];
+    const changed = filled > 0;
+    await this.db.exec(
+      `update request_contracts set "values" = $2, suggestions = $3, extraction_notes = $4, extracted_at = now(), extraction_error = null
+              ${changed ? `, status = 'RASCUNHO', confirmed_by = null, confirmed_at = null, values_hash = null` : ''}
+        where id = $1`,
+      [contractId, JSON.stringify(values), JSON.stringify(result.suggestions), JSON.stringify(notes)],
+    );
+    await this.audit.log(actor, 'CONTRACT_EXTRACTED', {
+      requestId,
+      entityType: 'request_contract',
+      entityId: contractId,
+      details: { template: c.template_name, documents: docs.length, found: Object.keys(result.suggestions).length, filled },
+    });
+    return { filled, found: Object.keys(result.suggestions).length, notes };
   }
 
   async remove(requestId: string, contractId: string, actor: Actor & { type: 'USER' }) {

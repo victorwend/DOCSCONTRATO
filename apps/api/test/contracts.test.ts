@@ -149,3 +149,38 @@ test('pré-preenchimento a partir da solicitação', () => {
   assert.equal(resolveSource(ctx, 'answers.possui_seguro=sim'), true);
   assert.equal(resolveSource(ctx, 'applicant.is_pj'), true);
 });
+
+test('leitura dos documentos: aceita só campos conhecidos e tipos válidos', async () => {
+  const { parseExtraction, buildContent, buildInstructions } = await import('../src/domain/docx/extraction');
+  const fields = [
+    { key: 'placa', label: 'Placa', type: 'TEXT' as const, required: true },
+    { key: 'inicio', label: 'Início', type: 'DATE' as const, required: true },
+    { key: 'valor', label: 'Valor', type: 'MONEY' as const, required: true },
+    { key: 'pj', label: 'PESSOA JURÍDICA', type: 'CHECK' as const, required: false },
+  ];
+  const answer = 'Aqui está:\n```json\n' + JSON.stringify({
+    campos: {
+      placa: { valor: 'ABC1D23', documento: 'CRLV', trecho: 'PLACA ABC1D23', confianca: 'alta' },
+      inicio: { valor: '05/11/2026', documento: 'Proposta', confianca: 'média' },
+      valor: { valor: 1500, documento: 'Proposta', confianca: 'baixa' },
+      pj: { valor: 'sim', documento: 'Cartão CNPJ' },
+      inventado: { valor: 'x' },
+      vazio: null,
+    },
+    observacoes: ['CNH vence em 2027'],
+  }) + '\n```';
+  const r = parseExtraction(answer, fields);
+  assert.deepEqual(Object.keys(r.suggestions).sort(), ['inicio', 'pj', 'placa', 'valor']);
+  assert.equal(r.suggestions.inicio.value, '2026-11-05');
+  assert.equal(r.suggestions.valor.value, '1500');
+  assert.equal(r.suggestions.valor.confidence, 'baixa');
+  assert.equal(r.suggestions.pj.value, true);
+  assert.deepEqual(r.notes, ['CNH vence em 2027']);
+  assert.throws(() => parseExtraction('sem json', fields));
+  const content = buildContent(
+    [{ name: 'CRLV', files: [{ mime: 'application/pdf', data: Buffer.from('%PDF'), name: 'crlv.pdf' }] }],
+    buildInstructions(fields, { processo: 'Locação', solicitante: 'X', tipoPessoa: 'pessoa jurídica', extras: {} }),
+  );
+  assert.equal(content[1].type, 'document');
+  assert.match(String(content[content.length - 1].text), /Não invente/);
+});

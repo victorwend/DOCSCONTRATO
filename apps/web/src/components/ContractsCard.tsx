@@ -24,13 +24,20 @@ type Contract = {
   fields: FieldDef[];
   missing: string[];
   stale: boolean;
+  suggestions: Record<string, Suggestion>;
+  extraction_notes: string[];
+  extracted_at: string | null;
+  extraction_error: string | null;
 };
+
+type Suggestion = { value: string | boolean; document: string | null; evidence: string | null; confidence: 'alta' | 'media' | 'baixa' };
 
 type ListResponse = {
   contracts: Contract[];
   templates: Array<{ id: string; name: string; suggested: boolean }>;
   canGenerate: boolean;
   generateBlockedReason: string | null;
+  aiEnabled: boolean;
 };
 
 const STATUS: Record<Contract['status'], { label: string; cls: string }> = {
@@ -93,7 +100,9 @@ export function ContractsCard({ requestId, onChanged }: { requestId: string; onC
   async function start() {
     setBusy('new');
     try {
-      const r = await api<{ id: string }>(`/requests/${requestId}/contracts`, { body: { templateId } });
+      const r = await api<{ id: string; extraction: null | { filled: number; found: number } | { error: string } }>(`/requests/${requestId}/contracts`, { body: { templateId } });
+      if (r.extraction && 'error' in r.extraction) toast('error', `Contrato criado, mas a leitura dos documentos falhou: ${r.extraction.error}`);
+      else if (r.extraction) toast('success', `Li os documentos aprovados: ${r.extraction.filled} campo(s) preenchido(s). Confira antes de confirmar.`);
       const list = await load();
       const c = list?.contracts.find((x) => x.id === r.id);
       if (c) setEditing(c);
@@ -191,9 +200,13 @@ export function ContractsCard({ requestId, onChanged }: { requestId: string; onC
                 ))}
               </Select>
               <Button className="w-full" variant="dark" disabled={!templateId} loading={busy === 'new'} onClick={start}>
-                Preencher contrato
+                {busy === 'new' && data.aiEnabled ? 'Lendo os documentos aprovados…' : 'Preencher contrato'}
               </Button>
-              <p className="text-xs text-neutral-500">Os dados da solicitação são sugeridos automaticamente. Você confere, corrige e confirma antes de gerar.</p>
+              <p className="text-xs text-neutral-500">
+                {data.aiEnabled
+                  ? 'O sistema lê os documentos já aprovados (CRLV, cartão CNPJ, CNH, comprovantes, proposta) e preenche os campos. Você confere, corrige e confirma antes de gerar.'
+                  : 'Os dados da solicitação são sugeridos automaticamente. Você confere, corrige e confirma antes de gerar.'}
+              </p>
             </div>
           ) : (
             <p className="border-t pt-3 text-xs text-neutral-500">
@@ -214,6 +227,7 @@ export function ContractsCard({ requestId, onChanged }: { requestId: string; onC
           contract={editing}
           readOnly={!canManage}
           canConfirm={canConfirm}
+          aiEnabled={data.aiEnabled}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             const list = await load();
@@ -242,12 +256,15 @@ function ContractForm(props: {
   contract: Contract;
   readOnly: boolean;
   canConfirm: boolean;
+  aiEnabled: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const { requestId, contract: c, readOnly, canConfirm, onClose, onSaved } = props;
+  const { requestId, contract: c, readOnly, canConfirm, aiEnabled, onClose, onSaved } = props;
   const toast = useToast();
   const [values, setValues] = useState<Record<string, unknown>>(c.values ?? {});
+  useEffect(() => setValues(c.values ?? {}), [c.values]);
+  const sugg = c.suggestions ?? {};
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(c.values ?? {}), [values, c.values]);
@@ -286,6 +303,21 @@ function ContractForm(props: {
           <Button onClick={onClose}>Fechar</Button>
         ) : (
           <>
+            {aiEnabled && (
+              <Button
+                variant="dark"
+                loading={busy === 'extract'}
+                onClick={() => {
+                  if (dirty && !confirm('Há alterações não salvas que serão descartadas. Continuar?')) return;
+                  act('extract', async () => {
+                    const r = await api(`/requests/${requestId}/contracts/${c.id}/extract`, { body: {} });
+                    toast(r.filled ? 'success' : 'info', r.filled ? `${r.filled} campo(s) preenchido(s) a partir dos documentos.` : `Nenhum campo vazio novo encontrado (${r.found} lido(s)).`);
+                  });
+                }}
+              >
+                {busy === 'extract' ? 'Lendo documentos…' : 'Ler documentos aprovados'}
+              </Button>
+            )}
             <Button variant="ghost" loading={busy === 'refill'} onClick={() => act('refill', () => api(`/requests/${requestId}/contracts/${c.id}/refill`, { method: 'POST' }).then((r: any) => !r.changed && toast('info', 'Nada novo para preencher.')))}>
               Buscar dados da solicitação
             </Button>
@@ -321,6 +353,19 @@ function ContractForm(props: {
             Dados confirmados{c.confirmed_by_name ? ` por ${c.confirmed_by_name}` : ''}. Qualquer alteração volta o contrato para rascunho e exige nova confirmação.
           </Alert>
         )}
+        {c.extraction_error && <Alert kind="error">Última leitura dos documentos falhou: {c.extraction_error}</Alert>}
+        {c.extracted_at && !c.extraction_error && (
+          <Alert kind="info">
+            Documentos aprovados lidos em {fmtDateTime(c.extracted_at)}. Os campos com a etiqueta <b>📄</b> vieram dos documentos: confira cada um.
+            {c.extraction_notes?.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-xs">
+                {c.extraction_notes.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
+            )}
+          </Alert>
+        )}
         <Alert kind="info">
           Confira cada dado com os documentos aprovados. Campo deixado em branco mantém o marcador original do contrato (ex.: “XXXX”). O texto fixo do
           contrato nunca é alterado.
@@ -331,7 +376,10 @@ function ContractForm(props: {
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-600">{group}</h4>
             <div className="grid gap-3 sm:grid-cols-2">
               {fields.map((f) => (
-                <FieldInput key={f.key} f={f} value={values[f.key]} onChange={(v) => set(f.key, v)} disabled={readOnly} />
+                <div key={f.key}>
+                  <FieldInput f={f} value={values[f.key]} onChange={(v) => set(f.key, v)} disabled={readOnly} />
+                  {sugg[f.key] && <SuggestionNote s={sugg[f.key]} current={values[f.key]} onUse={readOnly ? undefined : () => set(f.key, sugg[f.key].value)} />}
+                </div>
               ))}
             </div>
           </section>
@@ -344,6 +392,27 @@ function ContractForm(props: {
         )}
       </div>
     </Modal>
+  );
+}
+
+function SuggestionNote({ s, current, onUse }: { s: Suggestion; current: unknown; onUse?: () => void }) {
+  const same = current === s.value || String(current ?? '') === String(s.value);
+  const conf = { alta: 'text-emerald-700', media: 'text-amber-700', baixa: 'text-red-700' }[s.confidence];
+  return (
+    <p className="mt-1 text-[11px] leading-snug text-neutral-500" title={s.evidence ?? undefined}>
+      📄 {s.document ?? 'documento'} · <span className={conf}>confiança {s.confidence}</span>
+      {!same && (
+        <>
+          {' '}
+          · documento diz: <b>{typeof s.value === 'boolean' ? (s.value ? 'marcar' : 'não marcar') : s.value}</b>{' '}
+          {onUse && (
+            <button type="button" className="font-semibold text-ink underline" onClick={onUse}>
+              usar
+            </button>
+          )}
+        </>
+      )}
+    </p>
   );
 }
 

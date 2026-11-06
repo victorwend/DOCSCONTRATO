@@ -57,6 +57,11 @@ const schema = z
     WHATSAPP_TEMPLATE_LANG: z.string().default('pt_BR'),
     WHATSAPP_API_VERSION: z.string().default('v21.0'),
 
+    // Leitura dos documentos aprovados para preencher contratos (Claude API) — opcional
+    ANTHROPIC_API_KEY: z.string().optional().or(z.literal('').transform(() => undefined)),
+    ANTHROPIC_MODEL: z.string().default('claude-sonnet-5-5'),
+    CONTRACT_AI_TIMEOUT_SECONDS: z.coerce.number().int().min(10).max(280).default(150),
+
     COMPANY_NAME: z.string().default('PAVIDEZ ENGENHARIA'),
     COMPANY_CNPJ: z.string().default('01.744.153/0001-06'),
     COMPANY_LOGO_PATH: z.string().default('./apps/api/assets/logo-pavidez.png'),

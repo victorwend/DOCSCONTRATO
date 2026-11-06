@@ -106,6 +106,14 @@ export class RequestContractsController {
     return this.contracts.refill(requestId, id, actor(req));
   }
 
+  @Post(':id/extract')
+  @RequirePermission('requests.manage')
+  extract(@Param('requestId') requestId: string, @Param('id') id: string, @Body() body: { overwrite?: boolean } | undefined, @Req() req: AuthedRequest) {
+    assertUuid(requestId);
+    assertUuid(id);
+    return this.contracts.extract(requestId, id, actor(req), { overwrite: body?.overwrite === true });
+  }
+
   @Post(':id/confirm')
   @RequirePermission('documents.review', 'requests.manage')
   async confirm(@Param('requestId') requestId: string, @Param('id') id: string, @Req() req: AuthedRequest) {
