@@ -62,6 +62,11 @@ export const AUDIT_LABELS: Record<string, string> = {
   REQUEST_CANCELLED: 'Solicitação cancelada',
   REQUEST_REOPENED: 'Solicitação reaberta',
   FILES_PURGED: 'Arquivos removidos (retenção)',
+  CONTRACT_CREATED: 'Contrato iniciado',
+  CONTRACT_UPDATED: 'Dados do contrato alterados',
+  CONTRACT_CONFIRMED: 'Dados do contrato conferidos e confirmados',
+  CONTRACT_GENERATED: 'Contrato gerado',
+  CONTRACT_REMOVED: 'Contrato removido',
 };
 
 export function fmtDate(v?: string | Date | null) {
@@ -118,4 +123,22 @@ export function answerText(q: { type: string; options?: any[] }, v: unknown): st
 export function todayPlus(days: number) {
   const d = new Date(Date.now() + days * 86400000);
   return d.toLocaleDateString('sv-SE');
+}
+
+// ---------------------------------------------------------------------------
+// Contratos
+// ---------------------------------------------------------------------------
+const MARKING: Record<string, string> = {
+  'highlight:yellow': 'Destaque amarelo',
+  'highlight:green': 'Destaque verde',
+  'highlight:cyan': 'Destaque azul-claro',
+};
+
+export function markingLabel(m?: string | null) {
+  if (!m) return 'Sem destaque';
+  if (MARKING[m]) return MARKING[m];
+  const [kind, value] = m.split(':');
+  if (kind === 'color') return `Texto colorido (#${value})`;
+  if (kind === 'shading') return `Sombreamento (#${value})`;
+  return `Destaque ${value}`;
 }

@@ -24,6 +24,8 @@ import { PortalService } from './portal/portal.service';
 import { PortalController } from './portal/portal.controller';
 import { JobsService } from './jobs/jobs.service';
 import { WhatsappService } from './whatsapp/whatsapp.service';
+import { ContractsService } from './contracts/contracts.service';
+import { ContractTemplatesController, RequestContractsController } from './contracts/contracts.controller';
 import { AllExceptionsFilter } from './common/exception.filter';
 import { Public } from './common/http';
 
@@ -59,7 +61,7 @@ class CoreModule implements OnModuleDestroy {
 
 @Module({
   imports: [CoreModule, ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }])],
-  controllers: [HealthController, AuthController, UsersController, ModelsController, RequestsController, FilesController, PortalController],
+  controllers: [HealthController, AuthController, UsersController, ModelsController, RequestsController, FilesController, PortalController, ContractTemplatesController, RequestContractsController],
   providers: [
     AuthService,
     ModelsService,
@@ -70,6 +72,7 @@ class CoreModule implements OnModuleDestroy {
     PortalService,
     JobsService,
     WhatsappService,
+    ContractsService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

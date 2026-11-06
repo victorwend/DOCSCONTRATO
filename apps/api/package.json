@@ -8,7 +8,7 @@
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/cli.ts migrate",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/cli.ts seed",
-    "test": "tsx --test test/domain.test.ts",
+    "test": "tsx --test test/domain.test.ts test/contracts.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:flow": "tsx --env-file-if-exists=../../.env --test test/flow.test.ts"
   },

@@ -45,6 +45,13 @@ export const AUDIT_LABELS: Record<string, string> = {
   REQUEST_CANCELLED: 'Solicitação cancelada',
   REQUEST_REOPENED: 'Solicitação reaberta',
   FILES_PURGED: 'Arquivos removidos pela política de retenção',
+  CONTRACT_CREATED: 'Contrato iniciado',
+  CONTRACT_UPDATED: 'Dados do contrato alterados',
+  CONTRACT_CONFIRMED: 'Dados do contrato conferidos e confirmados',
+  CONTRACT_GENERATED: 'Contrato gerado',
+  CONTRACT_REMOVED: 'Contrato removido',
+  CONTRACT_TEMPLATE_CREATED: 'Modelo de contrato cadastrado',
+  CONTRACT_TEMPLATE_UPDATED: 'Modelo de contrato alterado',
 };
 
 @Injectable()

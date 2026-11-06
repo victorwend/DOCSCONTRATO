@@ -17,6 +17,7 @@ function Shell({ children }: { children: ReactNode }) {
     { href: '/', label: 'Painel', show: true },
     { href: '/solicitacoes/nova', label: 'Nova solicitação', show: can(user, 'requests.create') },
     { href: '/modelos', label: 'Modelos', show: can(user, 'models.read') },
+    { href: '/contratos', label: 'Contratos', show: can(user, 'models.read') },
     { href: '/usuarios', label: 'Usuários', show: can(user, 'users.manage') },
   ].filter((n) => n.show);
 

@@ -264,6 +264,18 @@ solicitar “Contrato de locação/comodato”*). Salvou e está ativo → apare
 
 ---
 
+### Contratos preenchidos automaticamente
+
+1. **Contratos → + Novo modelo de contrato**: envie o contrato original da Pavidez em **.docx** (arquivos .doc: abra no Word e
+   *Salvar como → Documento do Word (.docx)*) e, se quiser, ligue ao processo (ex.: Locação de equipamentos).
+2. O sistema encontra os trechos destacados (amarelo, texto azul/vermelho, `XXXX`, `xxx`, `( )`) e sugere um campo para cada um,
+   com o rótulo ao lado (ex.: “CPF”, “Razão social”, cabeçalho da coluna da tabela).
+3. Na tela do modelo: junte trechos que são o mesmo dado (escolha o mesmo campo), dê um grupo (“Locador”, “Veículo”), tipo
+   (data, valor, marcação), formato (extenso, CPF, data por extenso) e a **origem** do dado na solicitação. Use
+   **Baixar teste preenchido** para abrir no Word com cada campo marcado como «nome do campo».
+4. Na solicitação: **Contrato → Preencher contrato**. Os dados vêm sugeridos; o RH confere com os documentos aprovados, marca
+   “conferi” e **Confirma**. Com a documentação aprovada, **Gerar contrato** cria o `.docx` preenchido (só os campos mudam).
+
 ## 7. Modelos iniciais
 
 Criados pelo seed **somente a partir dos materiais fornecidos**:
@@ -331,6 +343,10 @@ Prefixo `/api`. Autenticadas (cookie de sessão) salvo indicação.
 | POST | `/requests/:id/documents/:docId/files` · `/text` | anexar pelo RH |
 | GET | `/requests/:id/documents/:docId/pdf` | PDF do documento (frente+verso) |
 | POST | `/requests/:id/final-pdf` · `/final-pdf/email` · `/finalize` | PDF final, reenvio, finalizar |
+| GET/POST | `/contract-templates` (upload multipart `file` .docx + `name`, `modelId`) | modelos de contrato |
+| GET/PUT | `/contract-templates/:id` · GET `/original` · `/preview` | trechos detectados, campos e mapeamento; arquivo original; teste preenchido |
+| GET/POST | `/requests/:id/contracts` | contratos da solicitação / iniciar a partir de um modelo |
+| PUT/DELETE | `/requests/:id/contracts/:cid` · POST `/refill` · `/confirm` · `/generate` | salvar dados, buscar dados da solicitação, confirmar, gerar .docx |
 | POST | `/requests/:id/cancel` · `/reopen` | cancelar / reabrir |
 | GET | `/files/:id/url` → GET `/files/signed/:token` (público, assinado) | visualizar/baixar |
 | GET | `/portal/:token` | **público** — dados do link |

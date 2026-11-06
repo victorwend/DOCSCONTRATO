@@ -9,7 +9,8 @@ import type { Env } from '../config/env';
  * Estrutura lógica:
  *   requests/{request_id}/original/{file_id}.{ext}
  *   requests/{request_id}/processed/{document_id}.pdf
- *   requests/{request_id}/final/{file_id}.pdf
+ *   requests/{request_id}/final/{file_id}.pdf | .docx (PDF consolidado e contratos gerados)
+ *   contract-templates/{template_id}/{file_id}.docx   (modelo de contrato original)
  * Nenhum nome de arquivo contém CPF, nome ou outro dado pessoal.
  */
 export interface StorageDriver {
@@ -22,7 +23,10 @@ export interface StorageDriver {
 }
 
 export function assertSafeKey(key: string) {
-  if (!/^requests\/[0-9a-f-]{36}\/(original|processed|final)\/[A-Za-z0-9._-]+$/.test(key)) {
+  if (
+    !/^requests\/[0-9a-f-]{36}\/(original|processed|final)\/[A-Za-z0-9._-]+$/.test(key) &&
+    !/^contract-templates\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.docx$/.test(key)
+  ) {
     throw new Error(`Chave de storage inválida: ${key}`);
   }
 }

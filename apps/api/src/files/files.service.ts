@@ -23,7 +23,7 @@ export interface FileRow {
   id: string;
   request_id: string;
   request_document_id: string | null;
-  kind: 'ORIGINAL' | 'PROCESSED' | 'FINAL';
+  kind: 'ORIGINAL' | 'PROCESSED' | 'FINAL' | 'CONTRACT';
   storage_driver: string;
   storage_key: string;
   original_name: string;

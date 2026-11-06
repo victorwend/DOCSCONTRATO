@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ContractsCard } from '@/components/ContractsCard';
 import { api, upload } from '@/lib/api';
 import { answerText, AUDIT_LABELS, fmtBytes, fmtDate, fmtDateTime, maskDocInput, maskPhone, REJECTION_REASONS, REQUEST_STATUS } from '@/lib/format';
 import { can, useUser } from '@/components/session';
@@ -232,6 +233,8 @@ export default function RequestDetailPage() {
               </div>
             )}
           </Card>
+
+          <ContractsCard requestId={id} onChanged={load} />
 
           <Card
             title="Link exclusivo"

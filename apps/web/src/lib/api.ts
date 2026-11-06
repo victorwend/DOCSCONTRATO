@@ -35,6 +35,23 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   return handle<T>(res);
 }
 
+/** Baixa um arquivo gerado pela API (ex.: .docx) e oferece para salvar. */
+export async function downloadFile(path: string, fallbackName = 'arquivo') {
+  const res = await fetch(`/api${path}`, { credentials: 'same-origin', cache: 'no-store' });
+  if (!res.ok) await handle(res);
+  const cd = res.headers.get('content-disposition') ?? '';
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) ?? /filename="([^"]+)"/i.exec(cd);
+  const name = m ? decodeURIComponent(m[1]) : fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 /** Upload com progresso (XMLHttpRequest) — importante para fotos grandes no celular. */
 export function upload<T = any>(path: string, form: FormData, onProgress?: (pct: number) => void): Promise<T> {
   return new Promise((resolve, reject) => {
